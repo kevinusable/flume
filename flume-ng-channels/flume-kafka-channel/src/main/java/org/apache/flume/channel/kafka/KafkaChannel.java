@@ -76,7 +76,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.flume.channel.kafka.KafkaChannelConfiguration.*;
-import static scala.collection.JavaConverters.asJavaListConverter;
+import static scala.collection.JavaConverters.seqAsJavaListConverter;
 
 public class KafkaChannel extends BasicChannelSemantics {
 
@@ -356,7 +356,7 @@ public class KafkaChannel extends BasicChannelSemantics {
   private Map<TopicPartition, OffsetAndMetadata> getZookeeperOffsets(ZkUtils client) {
     Map<TopicPartition, OffsetAndMetadata> offsets = new HashMap<>();
     ZKGroupTopicDirs topicDirs = new ZKGroupTopicDirs(groupId, topicStr);
-    List<String> partitions = asJavaListConverter(
+    List<String> partitions = seqAsJavaListConverter(
         client.getChildrenParentMayNotExist(topicDirs.consumerOffsetDir())).asJava();
     for (String partition : partitions) {
       TopicPartition key = new TopicPartition(topicStr, Integer.valueOf(partition));

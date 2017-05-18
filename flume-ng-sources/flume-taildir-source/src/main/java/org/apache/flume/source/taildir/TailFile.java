@@ -28,8 +28,11 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.apache.flume.source.taildir.TaildirSourceConfigurationConstants.BYTE_OFFSET_HEADER_KEY;
 
@@ -53,6 +56,8 @@ public class TailFile {
   private byte[] oldBuffer;
   private int bufferPos;
   private long lineReadPos;
+  private String lineStartRegex;
+  private int bufferSize;
 
   public TailFile(File file, Map<String, String> headers, long inode, long pos)
       throws IOException {
@@ -103,6 +108,10 @@ public class TailFile {
     return lineReadPos;
   }
 
+  public String getLineStartRegex() {
+    return lineStartRegex;
+  }
+
   public void setPos(long pos) {
     this.pos = pos;
   }
@@ -119,6 +128,14 @@ public class TailFile {
     this.lineReadPos = lineReadPos;
   }
 
+  public void setLineStartRegex(String lineStartRegex) {
+    this.lineStartRegex = lineStartRegex;
+  }
+
+  public void setBufferSize(int bufferSize) {
+    this.bufferSize = bufferSize;
+  }
+
   public boolean updatePos(String path, long inode, long pos) throws IOException {
     if (this.inode == inode && this.path.equals(path)) {
       setPos(pos);
@@ -131,6 +148,8 @@ public class TailFile {
   public void updateFilePos(long pos) throws IOException {
     raf.seek(pos);
     lineReadPos = pos;
+    //for multiline
+    setPos(pos);
     bufferPos = NEED_READING;
     oldBuffer = new byte[0];
   }
@@ -139,14 +158,77 @@ public class TailFile {
   public List<Event> readEvents(int numEvents, boolean backoffWithoutNL,
       boolean addByteOffset) throws IOException {
     List<Event> events = Lists.newLinkedList();
+    /*
     for (int i = 0; i < numEvents; i++) {
       Event event = readEvent(backoffWithoutNL, addByteOffset);
       if (event == null) {
         break;
       }
       events.add(event);
+    }*/
+    //process multiline
+    int i = 0;
+    if (this.lineStartRegex.equals("")) {
+      for (i = 0; i < numEvents; i++) {
+        Event event = readEvent(backoffWithoutNL, addByteOffset);
+        if (event == null) {
+          break;
+        }
+      }
+    } else {
+      while (i < numEvents) {
+        Long posTmp = getLineReadPos();
+        List<byte[]> blockResult = readBlock();
+        if (blockResult == null) {
+          break;
+        }
+        int eventNum = blockResult.size() - 1;
+        for (int j = 0; j < eventNum; j++) {
+          byte[] block = blockResult.get(j);
+          Event event = EventBuilder.withBody(block);
+          events.add(event);
+          posTmp = posTmp + block.length;
+          updateFilePos(posTmp);
+          i++;
+          if (i >= eventNum) {
+            break;
+          }
+        }
+        if (eventNum == 0) {
+          updateFilePos(posTmp);
+          break;
+        }
+      }
     }
     return events;
+  }
+
+  private List<byte[]> readBlock() throws IOException {
+    List<byte[]> blockResult = null;
+    if (raf.getFilePointer() < raf.length()) {
+      readFile();
+      String blockStr = new String(buffer);
+      blockResult = splitBlockStr(blockStr,this.lineStartRegex);
+    }
+    return blockResult;
+  }
+
+  private List<byte[]> splitBlockStr(String blockStr, String lineStartRegex) {
+    Pattern pattern = Pattern.compile(lineStartRegex);
+    Matcher matcher = pattern.matcher(blockStr);
+    List<byte[]> strList = new ArrayList<>();
+    int pre = 0;
+    int i = 0;
+    while (matcher.find()) {
+      int start = matcher.start();
+      if (start == 0) continue;
+      String subStr = blockStr.substring(pre, start);
+      strList.add(subStr.getBytes());
+      pre = start;
+      i++;
+    }
+    strList.add(blockStr.substring(pre, blockStr.length()).getBytes());
+    return strList;
   }
 
   private Event readEvent(boolean backoffWithoutNL, boolean addByteOffset) throws IOException {
@@ -169,10 +251,17 @@ public class TailFile {
   }
 
   private void readFile() throws IOException {
+    /*
     if ((raf.length() - raf.getFilePointer()) < BUFFER_SIZE) {
       buffer = new byte[(int) (raf.length() - raf.getFilePointer())];
     } else {
       buffer = new byte[BUFFER_SIZE];
+    }
+    */
+    if ((raf.length() - raf.getFilePointer()) < this.bufferSize) {
+      buffer = new byte[(int) (raf.length() - raf.getFilePointer())];
+    } else {
+      buffer = new byte[this.bufferSize];
     }
     raf.read(buffer, 0, buffer.length);
     bufferPos = 0;

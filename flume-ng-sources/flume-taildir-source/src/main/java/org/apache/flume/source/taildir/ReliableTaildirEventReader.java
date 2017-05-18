@@ -59,6 +59,8 @@ public class ReliableTaildirEventReader implements ReliableEventReader {
   private boolean committed = true;
   private final boolean annotateFileName;
   private final String fileNameHeader;
+  private String lineStartRegex;
+  private int bufferSize;
 
   /**
    * Create a ReliableTaildirEventReader to watch the given directory.
@@ -66,7 +68,8 @@ public class ReliableTaildirEventReader implements ReliableEventReader {
   private ReliableTaildirEventReader(Map<String, String> filePaths,
       Table<String, String, String> headerTable, String positionFilePath,
       boolean skipToEnd, boolean addByteOffset, boolean cachePatternMatching,
-      boolean annotateFileName, String fileNameHeader) throws IOException {
+      boolean annotateFileName, String fileNameHeader,
+      String lineStartRegex,int bufferSize) throws IOException {
     // Sanity checks
     Preconditions.checkNotNull(filePaths);
     Preconditions.checkNotNull(positionFilePath);
@@ -89,6 +92,8 @@ public class ReliableTaildirEventReader implements ReliableEventReader {
     this.cachePatternMatching = cachePatternMatching;
     this.annotateFileName = annotateFileName;
     this.fileNameHeader = fileNameHeader;
+    this.lineStartRegex = lineStartRegex;
+    this.bufferSize = bufferSize;
     updateTailFiles(skipToEnd);
 
     logger.info("Updating position from position file: " + positionFilePath);
@@ -192,6 +197,8 @@ public class ReliableTaildirEventReader implements ReliableEventReader {
       long lastPos = currentFile.getPos();
       currentFile.updateFilePos(lastPos);
     }
+    currentFile.setLineStartRegex(this.lineStartRegex);
+    currentFile.setBufferSize(this.bufferSize);
     List<Event> events = currentFile.readEvents(numEvents, backoffWithoutNL, addByteOffset);
     if (events.isEmpty()) {
       return events;
@@ -302,6 +309,9 @@ public class ReliableTaildirEventReader implements ReliableEventReader {
     private String fileNameHeader =
             TaildirSourceConfigurationConstants.DEFAULT_FILENAME_HEADER_KEY;
 
+    private String lineStartRegex;
+    private int bufferSize;
+
     public Builder filePaths(Map<String, String> filePaths) {
       this.filePaths = filePaths;
       return this;
@@ -342,10 +352,20 @@ public class ReliableTaildirEventReader implements ReliableEventReader {
       return this;
     }
 
+    public Builder lineStartRegex(String lineStartRegex) {
+      this.lineStartRegex = lineStartRegex;
+      return this;
+    }
+
+    public Builder bufferSize(int bufferSize) {
+      this.bufferSize = bufferSize;
+      return this;
+    }
+
     public ReliableTaildirEventReader build() throws IOException {
       return new ReliableTaildirEventReader(filePaths, headerTable, positionFilePath, skipToEnd,
                                             addByteOffset, cachePatternMatching,
-                                            annotateFileName, fileNameHeader);
+                                            annotateFileName, fileNameHeader,lineStartRegex,bufferSize);
     }
   }
 

@@ -63,4 +63,12 @@ public class TaildirSourceConfigurationConstants {
   /** Whether to include absolute path filename in a header. */
   public static final String FILENAME_HEADER = "fileHeader";
   public static final boolean DEFAULT_FILE_HEADER = false;
+
+  /** Lines starts with regex matched string is considered as a flume event. */
+  public static final String REGEX_START = "lineStartRegex";
+  public static final String DEFAULT_REGEX_START = "";
+
+  /** Max Number of bytes for a flume event body's content. */
+  public static final String BUFFER_SIZE = "bufferSize";
+  public static final int DEFAULT_BUFFER_SIZE = 8192;
 }

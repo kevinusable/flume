@@ -87,6 +87,9 @@ public class TaildirSource extends AbstractSource implements
   private boolean fileHeader;
   private String fileHeaderKey;
 
+  private String lineStartRegex;
+  private int bufferSize;
+
   @Override
   public synchronized void start() {
     logger.info("{} TaildirSource source starting with directory: {}", getName(), filePaths);
@@ -100,6 +103,8 @@ public class TaildirSource extends AbstractSource implements
           .cachePatternMatching(cachePatternMatching)
           .annotateFileName(fileHeader)
           .fileNameHeader(fileHeaderKey)
+          .lineStartRegex(lineStartRegex)
+          .bufferSize(bufferSize)
           .build();
     } catch (IOException e) {
       throw new FlumeException("Error instantiating ReliableTaildirEventReader", e);
@@ -184,7 +189,8 @@ public class TaildirSource extends AbstractSource implements
             DEFAULT_FILE_HEADER);
     fileHeaderKey = context.getString(FILENAME_HEADER_KEY,
             DEFAULT_FILENAME_HEADER_KEY);
-
+    lineStartRegex = context.getString(REGEX_START, DEFAULT_REGEX_START);
+    bufferSize = context.getInteger(BUFFER_SIZE, DEFAULT_BUFFER_SIZE);
     if (sourceCounter == null) {
       sourceCounter = new SourceCounter(getName());
     }

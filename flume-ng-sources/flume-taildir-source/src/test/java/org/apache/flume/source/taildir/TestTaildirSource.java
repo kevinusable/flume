@@ -40,12 +40,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.apache.flume.source.taildir.TaildirSourceConfigurationConstants.FILE_GROUPS;
-import static org.apache.flume.source.taildir.TaildirSourceConfigurationConstants.FILE_GROUPS_PREFIX;
-import static org.apache.flume.source.taildir.TaildirSourceConfigurationConstants.HEADERS_PREFIX;
-import static org.apache.flume.source.taildir.TaildirSourceConfigurationConstants.POSITION_FILE;
-import static org.apache.flume.source.taildir.TaildirSourceConfigurationConstants.FILENAME_HEADER;
-import static org.apache.flume.source.taildir.TaildirSourceConfigurationConstants.FILENAME_HEADER_KEY;
+import static org.apache.flume.source.taildir.TaildirSourceConfigurationConstants.*;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -77,12 +72,73 @@ public class TestTaildirSource {
     posFilePath = tmpDir.getAbsolutePath() + "/taildir_position_test.json";
   }
 
+  private boolean delDir(File dir) {
+    if (dir.isDirectory()) {
+      String[] children = dir.list();
+      //Delete Folder Recursively.
+      for (int i=0; i<children.length; i++) {
+        boolean success = delDir(new File(dir, children[i]));
+        if (!success) {
+          return false;
+        }
+      }
+    }
+    return dir.delete();
+  }
+
   @After
   public void tearDown() {
     for (File f : tmpDir.listFiles()) {
-      f.delete();
+//      f.delete();
+      delDir(f);
     }
     tmpDir.delete();
+  }
+
+  @Test
+  public void testMultiline() throws IOException {
+    File f1 = new File(tmpDir, "a.log");
+    File f2 = new File(tmpDir, "b.log");
+    File f3 = new File(tmpDir, "c.log");
+    Files.write("a.log\n\n2016-05-17 00:12:06,713 [Thread-7] TRACE \n f1 \n 2016-05-18 00:12:06,713 [Thread-7] TRACE \n" +
+            " f1 \n" +
+            " f1f1", f1, Charsets.UTF_8);
+
+    Files.write(" 2016-05-19 00:12:06,713 [Thread-7] TRACE \n f2 \n f2f2\n2016-05-20 00:12:06,713 [Thread-7] TRACE\n ", f2, Charsets.UTF_8);
+    Files.write("c.log\n", f3, Charsets.UTF_8);
+
+    Context context = new Context();
+    context.put(POSITION_FILE, posFilePath);
+    context.put(FILE_GROUPS, "f1");
+    // Tail a.log and b.log
+    context.put(FILE_GROUPS_PREFIX  +  "f1", tmpDir.getAbsolutePath() +   "/[abc].log");
+    context.put(REGEX_START, "\\s?\\d\\d\\d\\d-\\d\\d-\\d\\d\\s\\d\\d:\\d\\d:\\d\\d,\\d\\d\\d");
+
+    Configurables.configure(source, context);
+    source.start();
+    source.process();
+    Transaction txn = channel.getTransaction();
+    txn.begin();
+    List<String> out = Lists.newArrayList();
+    for (int i = 0; i < 3; i++) {
+      Event e = channel.take();
+      if (e != null) {
+        out.add(TestTaildirEventReader.bodyAsString(e));
+      }
+    }
+    txn.commit();
+    txn.close();
+
+    assertEquals(3, out.size());
+    // Make sure we got every file
+
+    assertTrue(out.get(0).equals("a.log\n"));
+    assertTrue(out.get(1).equals("\n2016-05-17 00:12:06,713 [Thread-7] TRACE \n" +
+            " f1 \n"));
+
+    assertTrue(out.get(2).equals(" 2016-05-19 00:12:06,713 [Thread-7] TRACE \n" +
+            " f2 \n" +
+            " f2f2"));
   }
 
   @Test
