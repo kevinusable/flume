@@ -85,12 +85,6 @@
       <artifactId>kafka-clients</artifactId>
       <version>${kafka.version}</version>
     </dependency>
-      <dependency>
-          <groupId>org.apache.kafka</groupId>
-          <artifactId>kafka_2.11</artifactId>
-          <version>0.10.0.1</version>
-          <scope>test</scope>
-      </dependency>
 
   </dependencies>
 
