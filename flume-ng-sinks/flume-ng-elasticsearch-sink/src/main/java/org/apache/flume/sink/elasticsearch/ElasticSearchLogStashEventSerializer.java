@@ -29,7 +29,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.flume.Context;
 import org.apache.flume.Event;
 import org.apache.flume.conf.ComponentConfiguration;
-import org.elasticsearch.common.collect.Maps;
+import org.elasticsearch.common.collect.MapBuilder;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 
 /**
@@ -89,8 +89,8 @@ public class ElasticSearchLogStashEventSerializer implements
 
   private void appendHeaders(XContentBuilder builder, Event event)
       throws IOException {
-    Map<String, String> headers = Maps.newHashMap(event.getHeaders());
-
+    //Map<String, String> headers = Maps.newHashMap(event.getHeaders());
+    Map<String,String> headers = MapBuilder.newMapBuilder(event.getHeaders()).map();
     String timestamp = headers.get("timestamp");
     if (!StringUtils.isBlank(timestamp)
         && StringUtils.isBlank(headers.get("@timestamp"))) {

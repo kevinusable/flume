@@ -229,11 +229,31 @@ public class ResettableFileInputStream extends ResettableInputStream
     }
   }
 
+  private long newlineposition = 0;
+
+  @Override
+  public void setNewLine() {
+    newlineposition = position;
+  }
+
+  @Override
+  public void corrSyncPosition() {
+    syncPosition = newlineposition;
+  }
+
+
   @Override
   public synchronized int read(byte[] b, int off, int len) throws IOException {
     logger.trace("read(buf, {}, {})", off, len);
 
+    int start = buf.position();
+    charBuf.clear();
+    charBuf.limit(1);
+
+    boolean isEndOfInput = false;
+
     if (position >= fileSize) {
+      isEndOfInput = true;
       return -1;
     }
 
@@ -412,5 +432,4 @@ public class ResettableFileInputStream extends ResettableInputStream
     tracker.close();
     in.close();
   }
-
 }

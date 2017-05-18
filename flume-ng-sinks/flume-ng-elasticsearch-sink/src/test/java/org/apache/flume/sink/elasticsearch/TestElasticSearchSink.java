@@ -30,9 +30,8 @@ import org.apache.flume.conf.Configurables;
 import org.apache.flume.event.EventBuilder;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.client.Requests;
-import org.elasticsearch.common.UUID;
 import org.elasticsearch.common.io.BytesStream;
-import org.elasticsearch.common.io.FastByteArrayOutputStream;
+import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.junit.After;
 import org.junit.Before;
@@ -42,6 +41,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TimeZone;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.flume.sink.elasticsearch.ElasticSearchSinkConstants.BATCH_SIZE;
@@ -118,13 +118,13 @@ public class TestElasticSearchSink extends AbstractElasticSearchSinkTest {
 
     assertMatchAllQuery(3);
     assertSearch(1,
-        performSearch(QueryBuilders.fieldQuery("@message", "TEST1")),
+        performSearch(QueryBuilders.termQuery("@message", "TEST1")),
         null, event1);
     assertSearch(1,
-        performSearch(QueryBuilders.fieldQuery("@message", "TEST2")),
+        performSearch(QueryBuilders.termQuery("@message", "TEST2")),
         null, event2);
     assertSearch(1,
-        performSearch(QueryBuilders.fieldQuery("@message", "TEST3")),
+        performSearch(QueryBuilders.termQuery("@message", "TEST3")),
         null, event3);
   }
 
@@ -153,7 +153,7 @@ public class TestElasticSearchSink extends AbstractElasticSearchSinkTest {
     assertSearch(1,
         performSearch(QueryBuilders.matchAllQuery()), expectedBody, event);
     assertSearch(1,
-        performSearch(QueryBuilders.fieldQuery("@message.event", "json")),
+        performSearch(QueryBuilders.termQuery("@message.event", "json")),
         expectedBody, event);
   }
 
@@ -462,7 +462,7 @@ class FakeEventSerializer implements ElasticSearchEventSerializer {
 
   @Override
   public BytesStream getContentBuilder(Event event) throws IOException {
-    FastByteArrayOutputStream fbaos = new FastByteArrayOutputStream(4);
+    BytesStreamOutput fbaos = new BytesStreamOutput(4);
     fbaos.write(FAKE_BYTES);
     return fbaos;
   }

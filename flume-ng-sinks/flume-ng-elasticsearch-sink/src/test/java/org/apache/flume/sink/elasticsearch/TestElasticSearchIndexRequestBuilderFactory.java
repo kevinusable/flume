@@ -27,7 +27,7 @@ import org.apache.flume.event.SimpleEvent;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.io.BytesStream;
-import org.elasticsearch.common.io.FastByteArrayOutputStream;
+import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -55,7 +55,7 @@ public class TestElasticSearchIndexRequestBuilderFactory
     factory = new EventSerializerIndexRequestBuilderFactory(serializer) {
       @Override
       IndexRequestBuilder prepareIndex(Client client) {
-        return new IndexRequestBuilder(FAKE_CLIENT);
+        return FAKE_CLIENT.prepareIndex();
       }
     };
   }
@@ -137,7 +137,7 @@ public class TestElasticSearchIndexRequestBuilderFactory
         indexRequestBuilder.request().index());
     assertEquals(indexType, indexRequestBuilder.request().type());
     assertArrayEquals(FakeEventSerializer.FAKE_BYTES,
-        indexRequestBuilder.request().source().array());
+        indexRequestBuilder.request().source().toBytesRef().bytes);
   }
 
   @Test
@@ -196,7 +196,7 @@ public class TestElasticSearchIndexRequestBuilderFactory
 
     @Override
     public BytesStream getContentBuilder(Event event) throws IOException {
-      FastByteArrayOutputStream fbaos = new FastByteArrayOutputStream(4);
+      BytesStreamOutput fbaos = new BytesStreamOutput(4);
       fbaos.write(FAKE_BYTES);
       return fbaos;
     }

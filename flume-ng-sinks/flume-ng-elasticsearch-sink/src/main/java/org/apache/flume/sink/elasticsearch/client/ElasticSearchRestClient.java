@@ -108,7 +108,8 @@ public class  ElasticSearchRestClient implements ElasticSearchClient {
     synchronized (bulkBuilder) {
       bulkBuilder.append(gson.toJson(parameters));
       bulkBuilder.append("\n");
-      bulkBuilder.append(content.toBytesArray().toUtf8());
+      //bulkBuilder.append(content.toBytesArray().toUtf8());
+      bulkBuilder.append(content.utf8ToString());
       bulkBuilder.append("\n");
     }
   }

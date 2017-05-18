@@ -627,6 +627,11 @@ public class TestKafkaSource {
     doTestMigrateZookeeperOffsets(true, true, "testMigrateOffsets-both");
   }
 
+  @Test
+  public void testIsCombinatedEvent() {
+
+  }
+
   public void doTestMigrateZookeeperOffsets(boolean hasZookeeperOffsets, boolean hasKafkaOffsets,
                                             String group) throws Exception {
     // create a topic with 1 partition for simplicity

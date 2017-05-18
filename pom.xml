@@ -32,6 +32,7 @@ limitations under the License.
 
   <name>Apache Flume</name>
 
+
   <properties>
     <!-- Set default encoding to UTF-8 to remove maven complaints -->
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -47,10 +48,12 @@ limitations under the License.
     <stagingDirectory>${project.basedir}/target/docs</stagingDirectory>
 
     <avro.version>1.7.4</avro.version>
-    <elasticsearch.version>0.90.1</elasticsearch.version>
+    <!--<elasticsearch.version>0.90.1</elasticsearch.version>-->
+    <elasticsearch.version>5.1.1</elasticsearch.version>
     <hadoop2.version>2.4.0</hadoop2.version>
     <thrift.version>0.7.0</thrift.version>
-    <kafka.version>0.9.0.1</kafka.version>
+    <!--<kafka.version>0.9.0.1</kafka.version>-->
+    <kafka.version>0.10.0.1</kafka.version>
     <kite.version>1.0.0</kite.version>
     <hive.version>1.0.0</hive.version>
     <xalan.verion>2.7.1</xalan.verion>
@@ -119,7 +122,7 @@ limitations under the License.
           <dependency>
             <groupId>org.apache.zookeeper</groupId>
             <artifactId>zookeeper</artifactId>
-            <version>3.4.5</version>
+            <version>3.4.9</version>
             <scope>test</scope>
           </dependency>
         </dependencies>
@@ -195,7 +198,7 @@ limitations under the License.
           <dependency>
             <groupId>org.apache.zookeeper</groupId>
             <artifactId>zookeeper</artifactId>
-            <version>3.4.5</version>
+            <version>3.4.9</version>
             <scope>test</scope>
           </dependency>
 
@@ -316,7 +319,7 @@ limitations under the License.
           <dependency>
             <groupId>org.apache.zookeeper</groupId>
             <artifactId>zookeeper</artifactId>
-            <version>3.4.5</version>
+            <version>3.4.9</version>
             <scope>test</scope>
           </dependency>
 
@@ -1003,7 +1006,7 @@ limitations under the License.
         <groupId>org.apache.zookeeper</groupId>
         <artifactId>zookeeper</artifactId>
         <version>${zookeeper.version}</version>
-       </dependency>
+      </dependency>
 
       <dependency>
         <groupId>org.apache.hadoop</groupId>
@@ -1087,11 +1090,11 @@ limitations under the License.
         <version>1.7.0</version>
       </dependency>
 
-     <dependency>
-       <groupId>org.apache.flume.flume-ng-channels</groupId>
-       <artifactId>flume-recoverable-memory-channel</artifactId>
-       <version>1.7.0</version>
-     </dependency>
+      <dependency>
+        <groupId>org.apache.flume.flume-ng-channels</groupId>
+        <artifactId>flume-recoverable-memory-channel</artifactId>
+        <version>1.7.0</version>
+      </dependency>
 
       <dependency>
         <groupId>org.apache.flume.flume-shared</groupId>
@@ -1289,12 +1292,12 @@ limitations under the License.
       <!-- Dependencies of Kafka source -->
       <dependency>
         <groupId>org.apache.kafka</groupId>
-        <artifactId>kafka_2.10</artifactId>
+        <artifactId>kafka_2.11</artifactId>
         <version>${kafka.version}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.kafka</groupId>
-        <artifactId>kafka_2.10</artifactId>
+        <artifactId>kafka_2.11</artifactId>
         <version>${kafka.version}</version>
         <classifier>test</classifier>
         <scope>test</scope>
@@ -1398,12 +1401,12 @@ limitations under the License.
               <report>mailing-list</report>
               <report>issue-tracking</report>
               <report>license</report>
-<!-- for now
-              <report>modules</report>
-              <report>dependencies</report>
-              <report>cim</report>
-              <report>scm</report>
--->
+              <!-- for now
+                            <report>modules</report>
+                            <report>dependencies</report>
+                            <report>cim</report>
+                            <report>scm</report>
+              -->
               <!-- warning: the "about" report conflicts with sphinx-maven -->
             </reports>
           </reportSet>

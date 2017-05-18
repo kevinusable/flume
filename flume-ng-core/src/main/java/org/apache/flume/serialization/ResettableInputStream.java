@@ -111,4 +111,8 @@ public abstract class ResettableInputStream implements Resettable, Seekable,
   @Override
   public abstract void close() throws IOException;
 
+  public abstract  void setNewLine();
+
+  public abstract  void corrSyncPosition();
+
 }

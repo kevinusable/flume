@@ -17,6 +17,8 @@
 package org.apache.flume.source.kafka;
 
 import java.io.ByteArrayInputStream;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -30,6 +32,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Lists;
 import kafka.cluster.BrokerEndPoint;
 import kafka.utils.ZKGroupTopicDirs;
 import kafka.utils.ZkUtils;
@@ -66,7 +69,8 @@ import com.google.common.base.Optional;
 import scala.Option;
 
 import static org.apache.flume.source.kafka.KafkaSourceConstants.*;
-import static scala.collection.JavaConverters.asJavaListConverter;
+import static scala.collection.JavaConverters.seqAsJavaListConverter;
+//import static scala.collection.JavaConverters.asJavaListConverter;
 
 /**
  * A Source for Kafka which reads messages from kafka topics.
@@ -128,6 +132,9 @@ public class KafkaSource extends AbstractPollableSource
   private String groupId = DEFAULT_GROUP_ID;
   private boolean migrateZookeeperOffsets = DEFAULT_MIGRATE_ZOOKEEPER_OFFSETS;
 
+  private Pattern combinatedEventPattern = Pattern.compile("^\\[[\\s\\S]*\\]$");
+  private String charset = "UTF-8";
+
   /**
    * This class is a helper to subscribe for topics by using
    * different strategies
@@ -174,6 +181,11 @@ public class KafkaSource extends AbstractPollableSource
     public Pattern get() {
       return pattern;
     }
+  }
+
+  private boolean isCombinatedEvent(byte[] body) throws UnsupportedEncodingException {
+    String bodyContext = new String(body,charset);
+    return combinatedEventPattern.matcher(bodyContext).matches();
   }
 
 
@@ -276,14 +288,18 @@ public class KafkaSource extends AbstractPollableSource
           }
         }
 
-        event = EventBuilder.withBody(eventBody, headers);
-        eventList.add(event);
+        if(!isCombinatedEvent(eventBody)) {
+          event = EventBuilder.withBody(eventBody, headers);
+          eventList.add(event);
+        } else {
+          eventList.addAll(EventBuilder.withBody(eventBody,headers, new ArrayList<Event>()));
+        }
+
 
         if (log.isDebugEnabled()) {
           log.debug("Waited: {} ", System.currentTimeMillis() - batchStartTime);
           log.debug("Event #: {}", eventList.size());
         }
-
         // For each partition store next offset that is going to be read.
         tpAndOffsetMetadata.put(new TopicPartition(message.topic(), message.partition()),
                 new OffsetAndMetadata(message.offset() + 1, batchUUID));
@@ -455,7 +471,7 @@ public class KafkaSource extends AbstractPollableSource
         JaasUtils.isZkSecurityEnabled());
     try {
       List<BrokerEndPoint> endPoints =
-          asJavaListConverter(zkUtils.getAllBrokerEndPointsForChannel(securityProtocol)).asJava();
+          seqAsJavaListConverter(zkUtils.getAllBrokerEndPointsForChannel(securityProtocol)).asJava();
       List<String> connections = new ArrayList<>();
       for (BrokerEndPoint endPoint : endPoints) {
         connections.add(endPoint.connectionString());
@@ -587,7 +603,7 @@ public class KafkaSource extends AbstractPollableSource
                                                                      String topicStr) {
     Map<TopicPartition, OffsetAndMetadata> offsets = new HashMap<>();
     ZKGroupTopicDirs topicDirs = new ZKGroupTopicDirs(groupId, topicStr);
-    List<String> partitions = asJavaListConverter(
+    List<String> partitions = seqAsJavaListConverter(
         client.getChildrenParentMayNotExist(topicDirs.consumerOffsetDir())).asJava();
     for (String partition : partitions) {
       TopicPartition key = new TopicPartition(topicStr, Integer.valueOf(partition));

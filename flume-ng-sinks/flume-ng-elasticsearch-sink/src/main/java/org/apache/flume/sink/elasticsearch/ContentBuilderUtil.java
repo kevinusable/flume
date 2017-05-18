@@ -17,16 +17,14 @@
  * under the License.
  */
 package org.apache.flume.sink.elasticsearch;
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
-import java.io.IOException;
-import java.nio.charset.Charset;
-
-import org.elasticsearch.common.jackson.core.JsonParseException;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
+
+import java.io.IOException;
+import java.nio.charset.Charset;
 
 /**
  * Utility methods for using ElasticSearch {@link XContentBuilder}
@@ -73,7 +71,7 @@ public class ContentBuilderUtil {
       builder.field(fieldName);
       // This will add the whole parsed content as the value of the field.
       builder.copyCurrentStructure(parser);
-    } catch (JsonParseException ex) {
+    } catch (IOException ex) {
       // If we get an exception here the most likely cause is nested JSON that
       // can't be figured out in the body. At this point just push it through
       // as is

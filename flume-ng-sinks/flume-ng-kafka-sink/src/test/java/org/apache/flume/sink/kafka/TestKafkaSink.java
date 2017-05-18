@@ -21,6 +21,7 @@ package org.apache.flume.sink.kafka;
 import com.google.common.base.Charsets;
 
 import kafka.admin.AdminUtils;
+import kafka.admin.RackAwareMode;
 import kafka.message.MessageAndMetadata;
 import kafka.utils.ZkUtils;
 
@@ -157,7 +158,7 @@ public class TestKafkaSink {
     kafkaSink.setChannel(memoryChannel);
     kafkaSink.start();
 
-    String msg = "default-topic-test";
+    String msg = "{\"type\":\"log\",\"@timestamp\":\"2017-01-04T02:09:49Z\",\"tags\":[\"status\",\"plugin:timelion@5.1.1\",\"info\"],\"pid\":13792,\"state\":\"green\",\"message\":\"Status changed from uninitialized to green - Ready\",\"prevState\":\"uninitialized\",\"prevMsg\":\"uninitialized\"}";
     Transaction tx = memoryChannel.getTransaction();
     tx.begin();
     Event event = EventBuilder.withBody(msg.getBytes());
@@ -184,7 +185,7 @@ public class TestKafkaSink {
     Context context = prepareDefaultContext();
     // add the static topic
     context.put(TOPIC_CONFIG, TestConstants.STATIC_TOPIC);
-    String msg = "static-topic-test";
+    String msg = "{\"type\":\"log\",\"@timestamp\":\"2017-01-04T02:09:49Z\",\"tags\":[\"status\",\"plugin:timelion@5.1.1\",\"info\"],\"pid\":13792,\"state\":\"green\",\"message\":\"Status changed from uninitialized to green - Ready\",\"prevState\":\"uninitialized\",\"prevMsg\":\"uninitialized\"}";
 
     try {
       Sink.Status status = prepareAndSend(context, msg);
@@ -413,8 +414,8 @@ public class TestKafkaSink {
    * a large skew to some partitions and then verify that this actually happened
    * by reading messages directly using a Kafka Consumer.
    *
-   * @param usePartitionHeader
-   * @param staticPtn
+//   * @param usePartitionHeader
+//   * @param staticPtn
    * @throws Exception
    */
   private void doPartitionHeader(PartitionTestScenario scenario) throws Exception {
@@ -492,7 +493,8 @@ public class TestKafkaSink {
   private Context prepareDefaultContext() {
     // Prepares a default context with Kafka Server Properties
     Context context = new Context();
-    context.put(BOOTSTRAP_SERVERS_CONFIG, testUtil.getKafkaServerUrl());
+//    context.put(BOOTSTRAP_SERVERS_CONFIG, testUtil.getKafkaServerUrl());
+    context.put(BOOTSTRAP_SERVERS_CONFIG,"10.24.66.183:9092");
     context.put(BATCH_SIZE, "1");
     return context;
   }
@@ -523,7 +525,8 @@ public class TestKafkaSink {
         ZkUtils.apply(testUtil.getZkUrl(), sessionTimeoutMs, connectionTimeoutMs, false);
     int replicationFactor = 1;
     Properties topicConfig = new Properties();
-    AdminUtils.createTopic(zkUtils, topicName, numPartitions, replicationFactor, topicConfig);
+
+    AdminUtils.createTopic(zkUtils, topicName, numPartitions, replicationFactor,topicConfig,null);
   }
 
   public static void deleteTopic(String topicName) {
