@@ -86,4 +86,14 @@ class ResettableTestStringInputStream extends ResettableInputStream {
   public void close() throws IOException {
     // no-op
   }
+
+  @Override
+  public void setNewLine() {
+
+  }
+
+  @Override
+  public void corrSyncPosition() {
+
+  }
 }
