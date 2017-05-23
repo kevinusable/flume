@@ -19,13 +19,16 @@
 
 package org.apache.flume.event;
 
+import java.io.IOException;
 import java.nio.charset.Charset;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 import org.apache.flume.Event;
+import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.type.TypeReference;
 
 public class EventBuilder {
+  private static ObjectMapper mapper = new ObjectMapper();
 
   /**
    * Instantiate an Event instance based on the provided body and headers.
@@ -63,4 +66,16 @@ public class EventBuilder {
     return withBody(body, charset, null);
   }
 
+  //split event
+  public static List<Event> withBody(byte[] eventBody, Map<String, String> headers, List<Event> events) {
+    try {
+      List<Map<String,Object>> list = mapper.readValue(eventBody, new TypeReference<List<Map<String,Object>>>() {});
+      for(Map<String,Object> bodyMap : list) {
+        events.add(withBody(mapper.writeValueAsBytes(bodyMap),headers));
+      }
+    } catch (IOException e) {
+      events.add(withBody(eventBody,headers));
+    }
+    return events;
+  }
 }
