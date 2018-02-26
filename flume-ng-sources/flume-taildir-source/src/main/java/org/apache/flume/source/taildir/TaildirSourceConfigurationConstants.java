@@ -64,11 +64,43 @@ public class TaildirSourceConfigurationConstants {
   public static final String FILENAME_HEADER = "fileHeader";
   public static final boolean DEFAULT_FILE_HEADER = false;
 
-  /** Lines starts with regex matched string is considered as a flume event. */
-  public static final String REGEX_START = "lineStartRegex";
-  public static final String DEFAULT_REGEX_START = "";
+  /** Whether to support joining of multiline messages into a single flume event. */
+  public static final String MULTILINE = "multiline";
+  public static final boolean DEFAULT_MULTILINE = false;
 
-  /** Max Number of bytes for a flume event body's content. */
-  public static final String BUFFER_SIZE = "bufferSize";
-  public static final int DEFAULT_BUFFER_SIZE = 8192;
+  /** Regexp which matches the start or the end of an event consisting of multilines. */
+  public static final String MULTILINE_PATTERN = "multilinePattern";
+  public static final String DEFAULT_MULTILINE_PATTERN = "\\n";
+
+  /** Indicate the pattern belongs to the next or previous event.
+   * Value can be {'previous','next'}.
+   */
+  public static final String MULTILINE_PATTERN_BELONG = "multilinePatternBelong";
+  public static final String DEFAULT_MULTILINE_PATTERN_BELONG = "next";
+
+  /** Whether to match the pattern. If 'false', a message not matching the pattern will be combined
+   * with the previous or the next line.
+   */
+  public static final String MULTILINE_PATTERN_MATCHED = "multilineMatched";
+  public static final boolean DEFAULT_MULTILINE_PATTERN_MATCHED = true;
+
+  /** Maximum seconds before an event automatically be flushed.
+   * Default value 0 means never time out.
+   */
+  public static final String MULTILINE_EVENT_TIMEOUT_SECONDS = "multilineEventTimeoutSeconds";
+  public static final int DEFAULT_MULTILINE_EVENT_TIMEOUT_SECONDS = 0;
+
+  /**
+   * If the bytes length of multiline event exceeds this value, the event will be flushed.
+   * Default value 10MB. It's used in combination multilineMaxLines.
+   */
+  public static final String MULTILINE_MAX_BYTES = "multilineMaxBytes";
+  public static final int DEFAULT_MULTILINE_MAX_BYTES = 10485760;
+
+  /**
+   * If the lines of multiline event exceeds this value, the event will be flushed.
+   * Default value 500. It's used in combination multilineMaxBytes.
+   */
+  public static final String MULTILINE_MAX_LINES = "multilineMaxLines";
+  public static final int DEFAULT_MULTILINE_MAX_LINES = 500;
 }

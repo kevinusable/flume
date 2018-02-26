@@ -22,13 +22,13 @@ package org.apache.flume.source.taildir;
 import com.google.common.collect.Lists;
 import org.apache.flume.Event;
 import org.apache.flume.event.EventBuilder;
+import org.apache.flume.interceptor.TimestampInterceptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -56,11 +56,18 @@ public class TailFile {
   private byte[] oldBuffer;
   private int bufferPos;
   private long lineReadPos;
-  private String lineStartRegex;
-  private int bufferSize;
+
+  private boolean multiline;
+  private Pattern multilinePattern;
+  private String multilinePatternBelong;
+  private boolean multilinePatternMatched;
+  private long multilineEventTimeoutSecs;
+  private int multilineMaxBytes;
+  private int multilineMaxLines;
+  private Event bufferEvent;
 
   public TailFile(File file, Map<String, String> headers, long inode, long pos)
-      throws IOException {
+          throws IOException {
     this.raf = new RandomAccessFile(file, "r");
     if (pos > 0) {
       raf.seek(pos);
@@ -74,6 +81,7 @@ public class TailFile {
     this.headers = headers;
     this.oldBuffer = new byte[0];
     this.bufferPos = NEED_READING;
+    this.bufferEvent = null;
   }
 
   public RandomAccessFile getRaf() {
@@ -100,16 +108,24 @@ public class TailFile {
     return needTail;
   }
 
+  public boolean needFlushTimeoutEvent() {
+    if (bufferEvent != null) {
+      long now = System.currentTimeMillis();
+      long eventTime = Long.parseLong(
+              bufferEvent.getHeaders().get(TimestampInterceptor.Constants.TIMESTAMP));
+      if (multilineEventTimeoutSecs > 0 && (now - eventTime) > multilineEventTimeoutSecs * 1000) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   public Map<String, String> getHeaders() {
     return headers;
   }
 
   public long getLineReadPos() {
     return lineReadPos;
-  }
-
-  public String getLineStartRegex() {
-    return lineStartRegex;
   }
 
   public void setPos(long pos) {
@@ -128,12 +144,32 @@ public class TailFile {
     this.lineReadPos = lineReadPos;
   }
 
-  public void setLineStartRegex(String lineStartRegex) {
-    this.lineStartRegex = lineStartRegex;
+  public void setMultiline(boolean multiline) {
+    this.multiline = multiline;
   }
 
-  public void setBufferSize(int bufferSize) {
-    this.bufferSize = bufferSize;
+  public void setMultilinePattern(String multilinePattern) {
+    this.multilinePattern = Pattern.compile(multilinePattern);
+  }
+
+  public void setMultilinePatternBelong(String multilinePatternBelong) {
+    this.multilinePatternBelong = multilinePatternBelong;
+  }
+
+  public void setMultilinePatternMatched(boolean multilinePatternMatched) {
+    this.multilinePatternMatched = multilinePatternMatched;
+  }
+
+  public void setMultilineEventTimeoutSecs(long multilineEventTimeoutSecs) {
+    this.multilineEventTimeoutSecs = multilineEventTimeoutSecs;
+  }
+
+  public void setMultilineMaxBytes(int multilineMaxBytes) {
+    this.multilineMaxBytes = multilineMaxBytes;
+  }
+
+  public void setMultilineMaxLines(int multilineMaxLines) {
+    this.multilineMaxLines = multilineMaxLines;
   }
 
   public boolean updatePos(String path, long inode, long pos) throws IOException {
@@ -148,87 +184,152 @@ public class TailFile {
   public void updateFilePos(long pos) throws IOException {
     raf.seek(pos);
     lineReadPos = pos;
-    //for multiline
-    setPos(pos);
     bufferPos = NEED_READING;
     oldBuffer = new byte[0];
   }
 
 
   public List<Event> readEvents(int numEvents, boolean backoffWithoutNL,
-      boolean addByteOffset) throws IOException {
+                                boolean addByteOffset) throws IOException {
     List<Event> events = Lists.newLinkedList();
-    /*
-    for (int i = 0; i < numEvents; i++) {
-      Event event = readEvent(backoffWithoutNL, addByteOffset);
-      if (event == null) {
-        break;
+
+    if (this.multiline) {
+      if (raf != null) { // when file has not closed yet
+        boolean match = this.multilinePatternMatched;
+        while (events.size() < numEvents) {
+          LineResult line = readLine();
+          if (line == null) {
+            break;
+          }
+          Event event = null;
+          switch (this.multilinePatternBelong) {
+            case "next":
+              event = readMultilineEventNext(line, match);
+              break;
+            case "previous":
+              event = readMultilineEventPre(line, match);
+              break;
+            default:
+              break;
+          }
+          if (event != null) {
+            events.add(event);
+          }
+          if (bufferEvent != null) {
+            if (bufferEvent.getBody().length >= multilineMaxBytes
+                    || Integer.parseInt(bufferEvent.getHeaders().get("lineCount")) == multilineMaxLines) {
+              flushBufferEvent(events);
+            }
+          }
+        }
       }
-      events.add(event);
-    }*/
-    //process multiline
-    int i = 0;
-    if (this.lineStartRegex.equals("")) {
-      for (i = 0; i < numEvents; i++) {
+      if (needFlushTimeoutEvent()) {
+        flushBufferEvent(events);
+      }
+    } else {
+      for (int i = 0; i < numEvents; i++) {
         Event event = readEvent(backoffWithoutNL, addByteOffset);
         if (event == null) {
           break;
         }
-      }
-    } else {
-      while (i < numEvents) {
-        Long posTmp = getLineReadPos();
-        List<byte[]> blockResult = readBlock();
-        if (blockResult == null) {
-          break;
-        }
-        int eventNum = blockResult.size() - 1;
-        for (int j = 0; j < eventNum; j++) {
-          byte[] block = blockResult.get(j);
-          Event event = EventBuilder.withBody(block);
-          events.add(event);
-          posTmp = posTmp + block.length;
-          updateFilePos(posTmp);
-          i++;
-          if (i >= eventNum) {
-            break;
-          }
-        }
-        if (eventNum == 0) {
-          updateFilePos(posTmp);
-          break;
-        }
+        events.add(event);
       }
     }
     return events;
   }
 
-  private List<byte[]> readBlock() throws IOException {
-    List<byte[]> blockResult = null;
-    if (raf.getFilePointer() < raf.length()) {
-      readFile();
-      String blockStr = new String(buffer);
-      blockResult = splitBlockStr(blockStr,this.lineStartRegex);
+  private Event readMultilineEventPre(LineResult line, boolean match)
+          throws IOException {
+    Event event = null;
+    Matcher m = multilinePattern.matcher(new String(line.line));
+    boolean find = m.find();
+    match = (find && match) || (!find && !match);
+    byte[] lineBytes = toOriginBytes(line);
+    if (match) {
+      /** If matched, merge it to the buffer event. */
+      mergeEvent(line);
+    } else {
+      /**
+       * If not matched, this line is not part of previous event when the buffer event is not null.
+       * Then create a new event with buffer event's message and put the current line into the
+       * cleared buffer event.
+       */
+      if (bufferEvent != null) {
+        event = EventBuilder.withBody(bufferEvent.getBody());
+      }
+      bufferEvent = null;
+      bufferEvent = EventBuilder.withBody(lineBytes);
+      if (line.lineSepInclude) {
+        bufferEvent.getHeaders().put("lineCount", "1");
+      } else {
+        bufferEvent.getHeaders().put("lineCount", "0");
+      }
+      long now = System.currentTimeMillis();
+      bufferEvent.getHeaders().put(TimestampInterceptor.Constants.TIMESTAMP, Long.toString(now));
     }
-    return blockResult;
+    return event;
   }
 
-  private List<byte[]> splitBlockStr(String blockStr, String lineStartRegex) {
-    Pattern pattern = Pattern.compile(lineStartRegex);
-    Matcher matcher = pattern.matcher(blockStr);
-    List<byte[]> strList = new ArrayList<>();
-    int pre = 0;
-    int i = 0;
-    while (matcher.find()) {
-      int start = matcher.start();
-      if (start == 0) continue;
-      String subStr = blockStr.substring(pre, start);
-      strList.add(subStr.getBytes());
-      pre = start;
-      i++;
+  private Event readMultilineEventNext(LineResult line, boolean match)
+          throws IOException {
+    Event event = null;
+    Matcher m = multilinePattern.matcher(new String(line.line));
+    boolean find = m.find();
+    match = (find && match) || (!find && !match);
+    if (match) {
+      /** If matched, merge it to the buffer event. */
+      mergeEvent(line);
+    } else {
+      /**
+       * If not matched, this line is not part of next event. Then merge the current line into the
+       * buffer event and create a new event with the merged message.
+       */
+      mergeEvent(line);
+      event = EventBuilder.withBody(bufferEvent.getBody());
+      bufferEvent = null;
     }
-    strList.add(blockStr.substring(pre, blockStr.length()).getBytes());
-    return strList;
+    return event;
+  }
+
+  private void mergeEvent(LineResult line) {
+    byte[] lineBytes = toOriginBytes(line);
+    if (bufferEvent != null) {
+      byte[] bufferBytes = bufferEvent.getBody();
+      byte[] mergedBytes = concatByteArrays(bufferBytes, 0, bufferBytes.length,
+              lineBytes, 0, lineBytes.length);
+      int lineCount = Integer.parseInt(bufferEvent.getHeaders().get("lineCount"));
+      bufferEvent.setBody(mergedBytes);
+      if (line.lineSepInclude) {
+        bufferEvent.getHeaders().put("lineCount", String.valueOf(lineCount + 1));
+      }
+    } else {
+      bufferEvent = EventBuilder.withBody(lineBytes);
+      bufferEvent.getHeaders().put("multiline", "true");
+      if (line.lineSepInclude) {
+        bufferEvent.getHeaders().put("lineCount", "1");
+      } else {
+        bufferEvent.getHeaders().put("lineCount", "0");
+      }
+    }
+    long now = System.currentTimeMillis();
+    bufferEvent.getHeaders().put(TimestampInterceptor.Constants.TIMESTAMP, Long.toString(now));
+  }
+
+  private void flushBufferEvent(List<Event> events) {
+    Event event = EventBuilder.withBody(bufferEvent.getBody());
+    events.add(event);
+    bufferEvent = null;
+  }
+
+  private byte[] toOriginBytes(LineResult line) {
+    byte[] originBytes = null;
+    if (line.lineSepInclude) {
+      originBytes  = new byte[line.line.length + 1];
+      System.arraycopy(line.line, 0, originBytes , 0, line.line.length);
+      originBytes [line.line.length] = BYTE_NL;
+      return originBytes;
+    }
+    return line.line;
   }
 
   private Event readEvent(boolean backoffWithoutNL, boolean addByteOffset) throws IOException {
@@ -239,7 +340,7 @@ public class TailFile {
     }
     if (backoffWithoutNL && !line.lineSepInclude) {
       logger.info("Backing off in file without newline: "
-          + path + ", inode: " + inode + ", pos: " + raf.getFilePointer());
+              + path + ", inode: " + inode + ", pos: " + raf.getFilePointer());
       updateFilePos(posTmp);
       return null;
     }
@@ -251,17 +352,10 @@ public class TailFile {
   }
 
   private void readFile() throws IOException {
-    /*
     if ((raf.length() - raf.getFilePointer()) < BUFFER_SIZE) {
       buffer = new byte[(int) (raf.length() - raf.getFilePointer())];
     } else {
       buffer = new byte[BUFFER_SIZE];
-    }
-    */
-    if ((raf.length() - raf.getFilePointer()) < this.bufferSize) {
-      buffer = new byte[(int) (raf.length() - raf.getFilePointer())];
-    } else {
-      buffer = new byte[this.bufferSize];
     }
     raf.read(buffer, 0, buffer.length);
     bufferPos = 0;
@@ -302,7 +396,7 @@ public class TailFile {
             oldLen -= 1;
           }
           lineResult = new LineResult(true,
-              concatByteArrays(oldBuffer, 0, oldLen, buffer, bufferPos, lineLen));
+                  concatByteArrays(oldBuffer, 0, oldLen, buffer, bufferPos, lineLen));
           setLineReadPos(lineReadPos + (oldBuffer.length + (i - bufferPos + 1)));
           oldBuffer = new byte[0];
           if (i + 1 < buffer.length) {
@@ -318,7 +412,7 @@ public class TailFile {
       }
       // NEW_LINE not showed up at the end of the buffer
       oldBuffer = concatByteArrays(oldBuffer, 0, oldBuffer.length,
-                                   buffer, bufferPos, buffer.length - bufferPos);
+              buffer, bufferPos, buffer.length - bufferPos);
       bufferPos = NEED_READING;
     }
     return lineResult;

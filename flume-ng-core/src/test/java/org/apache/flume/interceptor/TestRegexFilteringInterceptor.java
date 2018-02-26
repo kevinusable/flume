@@ -27,6 +27,10 @@ import org.junit.Test;
 
 import com.google.common.base.Charsets;
 
+import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
+
 public class TestRegexFilteringInterceptor {
 
   @Test
@@ -87,15 +91,25 @@ public class TestRegexFilteringInterceptor {
         InterceptorType.REGEX_FILTER.toString());
 
     Context ctx = new Context();
-    ctx.put(Constants.REGEX, ".*url\":.*\\.css|html|js|jpeg|jpg|png|gif|bmp|ico.*");
+    ctx.put(Constants.REGEX, "(css|html|js|jpeg|jpg|png|gif|bmp|ico)");
     ctx.put(Constants.EXCLUDE_EVENTS, "true");
 
     builder.configure(ctx);
     Interceptor interceptor = builder.build();
+    int i = 0,j=0;
+    for (String eventBody : loadEvents()) {
+      Event shouldPass1 = EventBuilder.withBody(eventBody,
+              Charsets.UTF_8);
+//      Assert.assertNotNull(interceptor.intercept(shouldPass1));
+      if (interceptor.intercept(shouldPass1) == null) {
+        i ++;
+        System.out.println(eventBody);
+      } else {
 
-    Event shouldPass1 = EventBuilder.withBody("{\"url\": \"/ltl/order/search@GET\"}",
-        Charsets.UTF_8);
-    Assert.assertNotNull(interceptor.intercept(shouldPass1));
+      }
+      j++;
+    }
+    System.out.println("total: " + j + ",exclude: " + i);
 
 //    Event shouldPass2 = EventBuilder.withBody("WARNING: some message",
 //        Charsets.UTF_8);
@@ -106,5 +120,27 @@ public class TestRegexFilteringInterceptor {
 //    Assert.assertNull(interceptor.intercept(shouldNotPass));
 
     builder.configure(ctx);
+  }
+
+  @Test
+  public void testLoadEvents() {
+    loadEvents();
+  }
+
+  private List<String> loadEvents() {
+    BufferedReader reader;
+    List<String> results = new ArrayList<>();
+    try {
+       String line;
+       reader = new BufferedReader(new InputStreamReader(new FileInputStream(new File("E:\\work\\日志收集配置\\ovo\\trace\\test.log"))));
+       while ((line = reader.readLine()) != null) {
+        results.add(line);
+      }
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    return results;
   }
 }

@@ -311,7 +311,7 @@ public class KafkaSource extends AbstractPollableSource
         getChannelProcessor().processEventBatch(eventList);
         counter.addToEventAcceptedCount(eventList.size());
         if (log.isDebugEnabled()) {
-          log.debug("Wrote {} events to channel", eventList.size());
+          log.debug("Wrote {} events to channel.", eventList.size());
         }
         eventList.clear();
 

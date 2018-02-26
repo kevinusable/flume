@@ -59,8 +59,17 @@ public class ReliableTaildirEventReader implements ReliableEventReader {
   private boolean committed = true;
   private final boolean annotateFileName;
   private final String fileNameHeader;
-  private String lineStartRegex;
-  private int bufferSize;
+
+  /**
+   * Annto: temporary field to enable multiline mode,maybe add in next version
+   */
+  private boolean multiline;
+  private String multilinePattern;
+  private String multilinePatternBelong;
+  private boolean multilinePatternMatched;
+  private long multilineEventTimeoutSecs;
+  private int multilineMaxBytes;
+  private int multilineMaxLines;
 
   /**
    * Create a ReliableTaildirEventReader to watch the given directory.
@@ -69,7 +78,10 @@ public class ReliableTaildirEventReader implements ReliableEventReader {
       Table<String, String, String> headerTable, String positionFilePath,
       boolean skipToEnd, boolean addByteOffset, boolean cachePatternMatching,
       boolean annotateFileName, String fileNameHeader,
-      String lineStartRegex,int bufferSize) throws IOException {
+      boolean multiline, String multilinePattern,
+      String multilinePatternBelong, boolean multilinePatternMatched, long eventTimeoutSecs,
+      int multilineMaxBytes, int multilineMaxLines
+      ) throws IOException {
     // Sanity checks
     Preconditions.checkNotNull(filePaths);
     Preconditions.checkNotNull(positionFilePath);
@@ -92,8 +104,13 @@ public class ReliableTaildirEventReader implements ReliableEventReader {
     this.cachePatternMatching = cachePatternMatching;
     this.annotateFileName = annotateFileName;
     this.fileNameHeader = fileNameHeader;
-    this.lineStartRegex = lineStartRegex;
-    this.bufferSize = bufferSize;
+    this.multiline = multiline;
+    this.multilinePattern = multilinePattern;
+    this.multilinePatternBelong = multilinePatternBelong;
+    this.multilinePatternMatched = multilinePatternMatched;
+    this.multilineEventTimeoutSecs = eventTimeoutSecs;
+    this.multilineMaxBytes = multilineMaxBytes;
+    this.multilineMaxLines = multilineMaxLines;
     updateTailFiles(skipToEnd);
 
     logger.info("Updating position from position file: " + positionFilePath);
@@ -197,8 +214,15 @@ public class ReliableTaildirEventReader implements ReliableEventReader {
       long lastPos = currentFile.getPos();
       currentFile.updateFilePos(lastPos);
     }
-    currentFile.setLineStartRegex(this.lineStartRegex);
-    currentFile.setBufferSize(this.bufferSize);
+    if (multiline) {
+      currentFile.setMultiline(multiline);
+      currentFile.setMultilinePattern(multilinePattern);
+      currentFile.setMultilinePatternBelong(multilinePatternBelong);
+      currentFile.setMultilinePatternMatched(multilinePatternMatched);
+      currentFile.setMultilineEventTimeoutSecs(multilineEventTimeoutSecs);
+      currentFile.setMultilineMaxBytes(multilineMaxBytes);
+      currentFile.setMultilineMaxLines(multilineMaxLines);
+    }
     List<Event> events = currentFile.readEvents(numEvents, backoffWithoutNL, addByteOffset);
     if (events.isEmpty()) {
       return events;
@@ -309,8 +333,13 @@ public class ReliableTaildirEventReader implements ReliableEventReader {
     private String fileNameHeader =
             TaildirSourceConfigurationConstants.DEFAULT_FILENAME_HEADER_KEY;
 
-    private String lineStartRegex;
-    private int bufferSize;
+    private boolean multiline;
+    private String multilinePattern;
+    private String multilinePatternBelong;
+    private boolean multilinePatternMatched;
+    private long eventTimeoutSecs;
+    private int multilineMaxBytes;
+    private int multilineMaxLines;
 
     public Builder filePaths(Map<String, String> filePaths) {
       this.filePaths = filePaths;
@@ -352,20 +381,48 @@ public class ReliableTaildirEventReader implements ReliableEventReader {
       return this;
     }
 
-    public Builder lineStartRegex(String lineStartRegex) {
-      this.lineStartRegex = lineStartRegex;
+    public Builder multiline(boolean multiline) {
+      this.multiline = multiline;
       return this;
     }
 
-    public Builder bufferSize(int bufferSize) {
-      this.bufferSize = bufferSize;
+    public Builder multilinePattern(String multilinePattern) {
+      this.multilinePattern = multilinePattern;
+      return this;
+    }
+
+    public Builder multilinePatternBelong(String multilinePatternBelong) {
+      this.multilinePatternBelong = multilinePatternBelong;
+      return this;
+    }
+
+    public Builder multilinePatternMatched(boolean multilinePatternMatched) {
+      this.multilinePatternMatched = multilinePatternMatched;
+      return this;
+    }
+
+    public Builder eventTimeoutSecs(long eventTimeoutSecs) {
+      this.eventTimeoutSecs = eventTimeoutSecs;
+      return this;
+    }
+
+    public Builder multilineMaxBytes(int multilineMaxBytes) {
+      this.multilineMaxBytes = multilineMaxBytes;
+      return this;
+    }
+
+    public Builder multilineMaxLines(int multilineMaxLines) {
+      this.multilineMaxLines = multilineMaxLines;
       return this;
     }
 
     public ReliableTaildirEventReader build() throws IOException {
       return new ReliableTaildirEventReader(filePaths, headerTable, positionFilePath, skipToEnd,
                                             addByteOffset, cachePatternMatching,
-                                            annotateFileName, fileNameHeader,lineStartRegex,bufferSize);
+                                            annotateFileName, fileNameHeader,
+                                            multiline, multilinePattern,
+                                            multilinePatternBelong, multilinePatternMatched,
+                                            eventTimeoutSecs, multilineMaxBytes, multilineMaxLines);
     }
   }
 

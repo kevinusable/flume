@@ -1,0 +1,38 @@
+###############################非全量日志模板##############################
+
+###############################保留不要修改###############################
+agent.sources=logFileSource
+agent.channels=memoryChannel
+agent.sinks=kafkaSink
+agent.sources.logFileSource.type = TAILDIR
+agent.sources.logFileSource.multiline = false
+agent.sinks.kafkaSink.type=org.apache.flume.sink.kafka.KafkaSink
+agent.sinks.kafkaSink.kafka.producer.acks=1
+agent.channels.memoryChannel.type=memory
+agent.channels.memoryChannel.capacity=10000
+agent.channels.memoryChannel.transactionCapacity=10000
+agent.channels.memoryChannel.byteCapacityBufferPercentage=20
+agent.channels.memoryChannel.byteCapacity=419430400
+agent.sources.logFileSource.channels=memoryChannel
+agent.sinks.kafkaSink.channel=memoryChannel
+
+################################自定义配置项################################
+
+#添加日志路径
+#保存在该flume agent实例里的被读取文件的信息,命名时最好能够标识是属于哪种类型的日志。 注意：实例间不能共享同一个position文件！
+agent.sources.logFileSource.positionFile = /path/to/positionFile
+
+#添加多个日志，filegroups里面的值以空格为分隔符
+agent.sources.logFileSource.filegroups = f1 f2 f3
+agent.sources.logFileSource.filegroups.f1 = /path/to/log-file1
+agent.sources.logFileSource.filegroups.f2 = /path/to/log-file2
+agent.sources.logFileSource.filegroups.f3 = /path/to/log-file3
+
+#选择日志类型，可供选择：
+#  tracelog-kafka-topic    调用链日志
+#  exception-kafka-topic   异常日志
+#  slowsql-kafka-topic     慢SQL日志
+agent.sinks.kafkaSink.kafka.topic=tracelog-kafka-topic|exception-kafka-topic|slowsql-kafka-topic
+
+#添加kafka服务器
+agent.sinks.kafkaSink.kafka.bootstrap.servers=your-kafka-servers
